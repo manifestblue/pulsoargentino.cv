@@ -3,7 +3,7 @@ import axios from 'axios';
 import type { PredictionData, HistoricalDataPoint } from '../types/prediction';
 
 const HISTORICAL_DATA_KEY = 'raw/dataset_macro.json';
-const PREDICTION_DATA_KEY = 'raw/prediccion_dolar.json';
+const PREDICTION_DATA_KEY = 'production_predictions/prediccion_dolar.json';
 
 async function getPrivateS3Json(key: string): Promise<any> {
   try {
@@ -15,10 +15,8 @@ async function getPrivateS3Json(key: string): Promise<any> {
         validateObjectExistence: true
       },
     });
-
     const response = await axios.get(getUrlResult.url.toString());
     return response.data;
-
   } catch (error) {
     console.error(`Error al obtener el archivo desde S3 con la clave: ${key}`, error);
     throw error;
@@ -30,6 +28,7 @@ export async function fetchPredictionData(): Promise<PredictionData> {
 }
 
 export async function fetchHistoricalData(): Promise<HistoricalDataPoint[]> {
+  // --- CORRECCIÓN FINAL Y DEFINITIVA ---
   const data = await getPrivateS3Json(HISTORICAL_DATA_KEY);
   
   return data.map((item: any) => ({
