@@ -53,8 +53,7 @@ function App() {
           {!loading && !error && prediction && (
             <ChartComponent 
               predictionData={prediction} 
-              historicalData={historical} 
-              isLoading={loading} 
+              historicalData={historical}  
             />
           )}
         </div>
