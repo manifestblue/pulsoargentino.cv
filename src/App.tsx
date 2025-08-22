@@ -1,25 +1,22 @@
 import { useState, useEffect } from 'react';
 import type { PredictionData, HistoricalDataPoint } from './types/prediction';
 import { fetchPredictionData, fetchHistoricalData } from './services/dataService';
+import { motion } from 'framer-motion';
 
-// Importa los componentes que vamos a crear (marcarán error por ahora)
 import Header from './components/Header';
 import ChartComponent from './components/ChartComponent';
 import Footer from './components/Footer';
 
 function App() {
-  // --- Gestión de Estado Local ---
   const [prediction, setPrediction] = useState<PredictionData | null>(null);
   const [historical, setHistorical] = useState<HistoricalDataPoint[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // --- Lógica de Carga de Datos ---
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
-        // Carga los datos de predicción e históricos en paralelo para mayor eficiencia
         const [predictionData, historicalData] = await Promise.all([
           fetchPredictionData(),
           fetchHistoricalData()
@@ -34,32 +31,35 @@ function App() {
         setLoading(false);
       }
     };
-
     loadData();
-  }, []); // El array vacío asegura que esto se ejecute solo una vez, al montar el componente
+  }, []);
 
   return (
-    <main className="bg-[#0D1117] min-h-screen flex flex-col items-center justify-center p-4 font-sans text-[#C9D1D9]">
-      <div className="w-full max-w-6xl mx-auto flex flex-col flex-grow">
+    <main className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 font-sans">
+      <motion.div 
+        className="w-full max-w-7xl mx-auto"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+      >
+        {loading && <p className="text-center text-text-secondary">Cargando la máquina de la verdad...</p>}
+        {error && <p className="text-center text-red-500">{error}</p>}
         
-        {/* Renderiza el Header solo si hay datos de predicción */}
-        {prediction && <Header lastUpdated={prediction.prediction_generated_on} />}
+        {!loading && !error && prediction && historical.length > 0 && (
+          <>
+            <Header lastUpdated={prediction.prediction_generated_on} />
+            
+            <div className="mt-8 p-4 sm:p-6 bg-surface/50 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-lg">
+              <ChartComponent 
+                predictionData={prediction} 
+                historicalData={historical} 
+              />
+            </div>
 
-        <div className="flex-grow flex items-center justify-center">
-          {loading && <p>Cargando datos del modelo...</p>}
-          {error && <p className="text-red-500">{error}</p>}
-          
-          {/* Renderiza el gráfico solo si no hay carga, no hay error y existen los datos */}
-          {!loading && !error && prediction && (
-            <ChartComponent 
-              predictionData={prediction} 
-              historicalData={historical}  
-            />
-          )}
-        </div>
-
-        <Footer />
-      </div>
+            <Footer />
+          </>
+        )}
+      </motion.div>
     </main>
   );
 }

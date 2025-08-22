@@ -4,4 +4,6 @@
 
 body {
   background-color: #0D1117;
+  background-image: radial-gradient(circle at top, rgba(47, 129, 247, 0.1), transparent 40%);
+  color: #C9D1D9;
 }

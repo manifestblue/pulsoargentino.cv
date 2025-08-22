@@ -16,8 +16,10 @@
     "@aws-sdk/s3-request-presigner": "^3.873.0",
     "aws-amplify": "^6.15.5",
     "axios": "^1.11.0",
+    "date-fns": "^4.1.0",
     "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.2",
+    "framer-motion": "^12.23.12",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
