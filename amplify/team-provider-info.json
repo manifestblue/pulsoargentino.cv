@@ -1,0 +1,23 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-pulsoargentinocv-dev-81be3-authRole",
+      "UnauthRoleArn": "arn:aws:iam::057088884065:role/amplify-pulsoargentinocv-dev-81be3-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::057088884065:role/amplify-pulsoargentinocv-dev-81be3-authRole",
+      "Region": "us-east-1",
+      "DeploymentBucketName": "amplify-pulsoargentinocv-dev-81be3-deployment",
+      "UnauthRoleName": "amplify-pulsoargentinocv-dev-81be3-unauthRole",
+      "StackName": "amplify-pulsoargentinocv-dev-81be3",
+      "StackId": "arn:aws:cloudformation:us-east-1:057088884065:stack/amplify-pulsoargentinocv-dev-81be3/cda6fde0-7ee1-11f0-af09-1247bbcb1e8d",
+      "AmplifyAppId": "d2dnhk8g3znkb1"
+    },
+    "categories": {
+      "auth": {
+        "pulsoargentinocvffbe44ad": {}
+      },
+      "storage": {
+        "s357eae807": {}
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "resourceName": "s357eae807",
+  "policyUUID": "57eae807",
+  "bucketName": "pulso-argentino-data-ml",
+  "storageAccess": "authAndGuest",
+  "guestAccess": [
+    "READ"
+  ],
+  "authAccess": [
+    "READ"
+  ],
+  "groupAccess": {}
+}

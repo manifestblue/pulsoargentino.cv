@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aws-amplify/storage": "^6.9.5",
+    "aws-amplify": "^6.15.5",
+    "axios": "^1.11.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
