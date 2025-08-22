@@ -5,81 +5,79 @@ import * as echarts from 'echarts';
 interface ChartComponentProps {
   predictionData: PredictionData;
   historicalData: HistoricalDataPoint[];
-  isLoading: boolean;
 }
 
-const designTokens = {
-  base: '#0D1117',
-  surface: '#161B22',
+// Paleta de colores extraída de la especificación
+const colors = {
   primary: '#2F81F7',
-  secondary: '#FF7F0E',
-  textPrimary: '#C9D1D9',
+  primaryLight: '#58A6FF',
+  secondary: '#FFC107',
   textSecondary: '#8B949E',
-  danger: '#F85149',
+  danger: '#FFFFFF',
+  surface: '#161B22',
+  textPrimary: '#C9D1D9',
 };
 
-function ChartComponent({ predictionData, historicalData, isLoading }: ChartComponentProps) {
-  const historicalSeriesData = historicalData.map(p => [p.date, p.value]);
-  const lastHistoricalPoint = historicalData[historicalData.length - 1];
-  const anchorPoint = [lastHistoricalPoint?.date, lastHistoricalPoint?.value];
-  
-  const trajectoryData = predictionData.trajectory.map(p => {
-    const midPoint = (p.lower_bound + p.upper_bound) / 2;
-    return [p.date, midPoint];
-  });
-  trajectoryData.unshift(anchorPoint);
+function ChartComponent({ predictionData, historicalData }: ChartComponentProps) {
 
-  const confidenceBandDataLower = predictionData.trajectory.map(p => [p.date, p.lower_bound]);
-  confidenceBandDataLower.unshift(anchorPoint);
+  // --- SOLUCIÓN: MÉTODO DEL POLÍGONO PARA LA BANDA DE CONFIANZA ---
+  const lastHistoricalPoint = historicalData[historicalData.length - 1];
   
-  const confidenceBandDataUpper = predictionData.trajectory.map(p => [p.date, p.upper_bound]);
-  confidenceBandDataUpper.unshift(anchorPoint);
+  const upperBand = predictionData.trajectory.map(p => [p.date, p.upper_bound]);
+  const lowerBandReversed = [...predictionData.trajectory].reverse().map(p => [p.date, p.lower_bound]);
+  
+  // Se crea un polígono cerrado para el área del gradiente.
+  const polygonData = [
+    [lastHistoricalPoint.date, lastHistoricalPoint.value],
+    ...upperBand,
+    ...lowerBandReversed,
+  ];
+  
+  const historicalSeriesData = historicalData.map(p => [p.date, p.value]);
+  const centralPredictionData = predictionData.trajectory.map(p => [p.date, (p.lower_bound + p.upper_bound) / 2]);
+  centralPredictionData.unshift([lastHistoricalPoint.date, lastHistoricalPoint.value]);
 
   const option = {
-    animation: !isLoading,
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'axis',
-      backgroundColor: designTokens.surface,
-      borderColor: designTokens.textSecondary,
-      textStyle: { color: designTokens.textPrimary },
-      formatter: (params: any) => {
-        const date = new Date(params[0].axisValue).toLocaleDateString('es-AR', {
-          year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC'
-        });
-        let tooltipHtml = `${date}<br />`;
-        params.forEach((param: any) => {
-          const value = param.value[1];
-          if (param.seriesName === 'Histórico' || param.seriesName === 'Predicción Central') {
-            tooltipHtml += `${param.marker} ${param.seriesName}: <strong>${Number(value).toFixed(2)} ARS</strong><br />`;
+      backgroundColor: colors.surface,
+      borderColor: colors.textSecondary,
+      textStyle: { color: colors.textPrimary },
+      axisPointer: {
+        type: 'cross',
+        label: {
+          // SOLUCIÓN: Formato de fecha explícito en el puntero del tooltip
+          formatter: (params: any) => {
+            if (params.axisDimension === 'x') {
+              return echarts.format.formatTime('dd MMM yyyy', params.value);
+            }
+            return params.value.toFixed(2);
           }
-          if (param.seriesName === 'Banda Superior') {
-             const lowerBound = confidenceBandDataLower.find(d => d[0] === param.axisValue)?.[1];
-             if (lowerBound !== undefined) {
-               // --- AJUSTE FINAL AQUÍ ---
-               // Forzamos la conversión a Número para asegurar que .toFixed() funcione.
-               tooltipHtml += `${param.marker.replace(designTokens.secondary, 'rgba(255, 127, 14, 0.5)')} Intervalo: <strong>${Number(lowerBound).toFixed(2)} - ${Number(value).toFixed(2)} ARS</strong><br />`;
-             }
-          }
-        });
-        return tooltipHtml;
+        }
       }
     },
     xAxis: {
       type: 'time',
-      axisLine: { lineStyle: { color: designTokens.textSecondary } },
-      axisLabel: { color: designTokens.textSecondary },
+      axisLine: { lineStyle: { color: colors.textSecondary } },
+      axisLabel: {
+        color: colors.textSecondary,
+        // SOLUCIÓN: Formatter para evitar etiquetas de fecha duplicadas
+        formatter: (value: number) => {
+            const date = new Date(value);
+            return echarts.format.formatTime('dd MMM', date);
+        }
+      },
     },
     yAxis: {
       type: 'value',
+      name: 'ARS/USD',
+      nameTextStyle: { color: colors.textSecondary },
       scale: true,
-      axisLabel: { color: designTokens.textSecondary },
-      splitLine: {
-        show: true,
-        lineStyle: { color: designTokens.textSecondary, opacity: 0.15, type: 'dashed' }
-      },
+      axisLabel: { color: colors.textSecondary },
+      splitLine: { show: true, lineStyle: { color: colors.textSecondary, opacity: 0.15, type: 'dashed' } },
     },
-    dataZoom: [{ type: 'inside', start: 80, end: 100 }],
+    dataZoom: [{ type: 'inside' }],
     grid: { left: '3%', right: '4%', bottom: '10%', containLabel: true },
     series: [
       {
@@ -87,48 +85,44 @@ function ChartComponent({ predictionData, historicalData, isLoading }: ChartComp
         type: 'line',
         data: historicalSeriesData,
         showSymbol: false,
-        smooth: true,
-        lineStyle: { color: designTokens.primary, width: 2.5 }
+        lineStyle: { color: colors.primary, width: 2.5 }
       },
       {
         name: 'Predicción Central',
         type: 'line',
-        data: trajectoryData,
+        data: centralPredictionData,
         showSymbol: false,
-        smooth: true,
-        lineStyle: { type: 'dashed', color: designTokens.primary, width: 2.5 }
+        lineStyle: { type: 'dashed', color: colors.primaryLight, width: 2 }
       },
       {
-        name: 'Banda Inferior',
+        name: 'Intervalo',
         type: 'line',
-        data: confidenceBandDataLower,
-        showSymbol: false,
-        lineStyle: { opacity: 0 },
-        stack: 'confidence'
-      },
-      {
-        name: 'Banda Superior',
-        type: 'line',
-        data: confidenceBandDataUpper,
-        showSymbol: false,
+        data: polygonData,
         lineStyle: { opacity: 0 },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(255, 127, 14, 0.5)' },
-            { offset: 1, color: 'rgba(255, 127, 14, 0.05)' }
-          ])
+            { offset: 0, color: 'rgba(255, 193, 7, 0.5)' },
+            { offset: 1, color: 'rgba(255, 193, 7, 0.05)' }
+          ]),
         },
-        stack: 'confidence'
+        stack: 'confidence', // El stack es necesario para que el tooltip lo detecte correctamente
+        symbol: 'none'
+      },
+      {
+        name: 'Valor Real',
+        type: 'scatter',
+        data: [], // Aquí se podrían añadir puntos de realidad si existieran
+        symbolSize: 8,
+        itemStyle: { color: colors.danger }
       }
     ]
   };
 
   return (
-    <div className="w-full h-[60vh] min-h-[500px]">
+    <div className="w-full h-[60vh] min-h-[500px] flex-grow">
       <ReactECharts 
         option={option} 
         notMerge={true}
-        lazyUpdate={true}
         style={{ height: '100%', width: '100%' }}
       />
     </div>
