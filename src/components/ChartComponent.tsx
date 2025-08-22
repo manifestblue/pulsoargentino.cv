@@ -1,7 +1,7 @@
 import ReactECharts from 'echarts-for-react';
 import type { PredictionData, HistoricalDataPoint } from '../types/prediction';
 import * as echarts from 'echarts';
-import { format as formatDate } from 'date-fns';
+import { format as formatDate, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 interface ChartComponentProps {
@@ -12,39 +12,35 @@ interface ChartComponentProps {
 const colors = {
   primary: '#2F81F7',
   primaryLight: '#58A6FF',
-  secondary: '#FFC107', // CORRECCIÓN: Se añade el color 'secondary' que faltaba
+  secondary: '#FFC107',
   textSecondary: '#8B949E',
   surface: '#161B22',
   textPrimary: '#C9D1D9',
 };
 
 const numberFormatter = new Intl.NumberFormat('es-AR', {
+  style: 'currency',
+  currency: 'ARS',
   minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
 });
 
 function ChartComponent({ predictionData, historicalData }: ChartComponentProps) {
-  
+
   const lastHistoricalPoint = historicalData[historicalData.length - 1];
-  
-  // --- LÓGICA DE ROBUSTEZ: ZOOM INICIAL ---
-  const firstZoomDate = new Date(lastHistoricalPoint.date);
-  firstZoomDate.setDate(new Date(lastHistoricalPoint.date).getDate() - 15);
+  const lastHistoricalDate = new Date(lastHistoricalPoint.date);
+  const firstZoomDate = subDays(lastHistoricalDate, 15);
   const lastForecastDate = new Date(predictionData.trajectory[predictionData.trajectory.length - 1].date);
 
-  // --- TRANSFORMACIÓN DE DATOS ROBUSTA ---
   const historicalSeriesData = historicalData.map(p => [p.date, p.value]);
   
   const centralPredictionData = predictionData.trajectory.map(p => [p.date, (p.lower_bound + p.upper_bound) / 2]);
   centralPredictionData.unshift([lastHistoricalPoint.date, lastHistoricalPoint.value]);
 
-  // SOLUCIÓN DE ROBUSTEZ: Se crea una única serie para el intervalo con todos los datos necesarios
+  // SOLUCIÓN: Se crea una serie de datos específica para el intervalo que contiene los 3 valores necesarios
   const intervalSeriesData = predictionData.trajectory.map(p => [p.date, p.lower_bound, p.upper_bound]);
   intervalSeriesData.unshift([lastHistoricalPoint.date, lastHistoricalPoint.value, lastHistoricalPoint.value]);
   
-  // Se crea un polígono separado solo para el área visual
   const polygonDataForArea = [[lastHistoricalPoint.date, lastHistoricalPoint.value], ...predictionData.trajectory.map(p => [p.date, p.upper_bound]), ...[...predictionData.trajectory].reverse().map(p => [p.date, p.lower_bound])];
-
 
   const option = {
     backgroundColor: 'transparent',
@@ -57,29 +53,35 @@ function ChartComponent({ predictionData, historicalData }: ChartComponentProps)
         type: 'cross',
         label: {
           backgroundColor: colors.surface,
-          formatter: (params: any) => formatDate(new Date(params.value), 'dd MMM yyyy', { locale: es })
+          formatter: (params: any) => {
+             if (!params.value) return '';
+             return formatDate(new Date(params.value), 'dd MMM yyyy', { locale: es });
+          }
         }
       },
-      // --- TOOLTIP ROBUSTO ---
+      // SOLUCIÓN: Tooltip robusto que lee directamente de los datos de la serie
       formatter: (params: any[]) => {
+        if (!params.length) return '';
         const date = formatDate(new Date(params[0].axisValue), 'dd MMMM yyyy', { locale: es });
-        let tooltipHtml = `<div class="font-bold text-base mb-1">${date}</div>`;
+        let tooltipHtml = `<div class="font-bold text-base mb-1" style="color: ${colors.textPrimary};">${date}</div>`;
         
-        params.forEach(param => {
-          const value = param.value[1]; // Valor principal en la posición 1
-          if (param.seriesName === 'Histórico') {
-            tooltipHtml += `<div>${param.marker} Histórico: <span class="font-semibold">${numberFormatter.format(value)} ARS</span></div>`;
-          }
-          // Usamos la serie de intervalo, que tiene toda la data y evita errores
-          if (param.seriesName === 'Intervalo' && param.axisValue !== lastHistoricalPoint.date) {
-            const lowerBound = param.value[1];
-            const upperBound = param.value[2];
-            const centralPoint = (lowerBound + upperBound) / 2;
+        // Se busca el dato del intervalo directamente en los parámetros que provee ECharts
+        const intervalParam = params.find(p => p.seriesName === 'Intervalo');
 
-            tooltipHtml += `<div><span style="color:${colors.primaryLight}; margin-right:5px">●</span> Predicción Central: <span class="font-semibold">${numberFormatter.format(centralPoint)} ARS</span></div>`;
-            tooltipHtml += `<div><span style="color:${colors.secondary}; margin-right:5px">●</span> Intervalo: <span class="font-semibold">${numberFormatter.format(lowerBound)} - ${numberFormatter.format(upperBound)} ARS</span></div>`;
+        params.forEach(param => {
+          if (param.seriesName === 'Histórico') {
+            tooltipHtml += `<div style="color: ${colors.textPrimary};">${param.marker} Histórico: <span class="font-semibold">${numberFormatter.format(param.value[1])}</span></div>`;
+          }
+          if (param.seriesName === 'Predicción Central' && param.axisValue !== lastHistoricalPoint.date) {
+            tooltipHtml += `<div style="color: ${colors.textPrimary};">${param.marker} Predicción: <span class="font-semibold">${numberFormatter.format(param.value[1])}</span></div>`;
           }
         });
+
+        if (intervalParam && intervalParam.axisValue !== lastHistoricalPoint.date) {
+            const lowerBound = intervalParam.value[1];
+            const upperBound = intervalParam.value[2];
+            tooltipHtml += `<div style="color: ${colors.textPrimary};"><span style="color:${colors.secondary}; margin-right:5px">●</span> Intervalo: <span class="font-semibold">${numberFormatter.format(lowerBound)} - ${numberFormatter.format(upperBound)}</span></div>`;
+        }
         return tooltipHtml;
       }
     },
@@ -89,7 +91,7 @@ function ChartComponent({ predictionData, historicalData }: ChartComponentProps)
       name: 'ARS/USD',
       nameTextStyle: { color: colors.textSecondary, align: 'left' },
       scale: true,
-      axisLabel: { color: colors.textSecondary, formatter: (value: number) => numberFormatter.format(value) },
+      axisLabel: { color: colors.textSecondary, formatter: (value: number) => value.toLocaleString('es-AR') },
       splitLine: { show: true, lineStyle: { color: colors.textSecondary, opacity: 0.15, type: 'dashed' } },
     },
     dataZoom: [{ type: 'inside', startValue: firstZoomDate.getTime(), endValue: lastForecastDate.getTime() }],
@@ -122,17 +124,17 @@ function ChartComponent({ predictionData, historicalData }: ChartComponentProps)
           ),
         },
         stack: 'confidence',
-        symbol: 'none'
+        symbol: 'none',
+        tooltip: { show: false }
       },
-       // Serie invisible solo para controlar el tooltip de forma robusta
+      // Serie invisible que contiene los datos del intervalo para un acceso seguro en el tooltip
       {
         name: 'Intervalo',
         type: 'line',
         data: intervalSeriesData,
         symbol: 'none',
-        lineStyle: {
-            opacity: 0
-        }
+        lineStyle: { opacity: 0 },
+        tooltip: { show: true } 
       }
     ]
   };
